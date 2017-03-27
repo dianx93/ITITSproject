@@ -26,7 +26,7 @@ for folder in os.listdir(path):
             images[file] = {"IMAGE":cv2.imread(path + folder+ "/" +file)}
         else:
             add_image_details(path + folder+ "/" +file)
-    break
+
 
 import random
 image = random.choice(images.keys())
