@@ -31,11 +31,11 @@ class HoG:
                             bins[-1][-1][(int(maxAngle / 20)+1)%9] += (1-ratio)*maxMag
 
         return np.array(bins)
-
+	
     def normalize(self,patches):
         bins = []
-        for y_patch in range(patches.shape[0] / 2-1):
-            for x_patch in range(patches.shape[1] / 2-1):
+        for y_patch in range(patches.shape[0] -1):
+            for x_patch in range(patches.shape[1] -1):
                 vec = np.concatenate((patches[y_patch][x_patch], patches[y_patch][x_patch+1],
                                      patches[y_patch+1][x_patch], patches[y_patch+1][x_patch+1]),axis = 0)
 
@@ -44,11 +44,4 @@ class HoG:
                 vec = vec/ norm
                 bins.append(vec)
         return np.array(bins)
-
-
-
-hog = HoG()
-
-image = cv2.imread("eagle-1.jpg")
-print hog.getHoG(image).shape
 

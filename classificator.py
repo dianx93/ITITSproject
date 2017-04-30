@@ -18,8 +18,10 @@ def addImageDetails(file, images):
             images[name]["Y2"] = int(Y2)
             images[name]["CID"] = int(CID)
 
+import HoG
 def readTrainingImages(path, percentage):
     images = {}
+    hog = HoG.HoG()
     for folder in os.listdir(path):
         folder_index = int(folder)
         sign_type = classifications[folder_index]
@@ -32,6 +34,7 @@ def readTrainingImages(path, percentage):
             if file.endswith("ppm"):
                 images[file] = {"IMAGE": cv2.imread(path + folder + "/" + file)}
                 images[file]["SIGNTYPE"] = sign_type
+                images[file]["HoG"] = hog.getHoG(images[file]["IMAGE"])
 
         # Read the .csv file containing the bounding boxes of traffic signs
         for file in files:
@@ -39,13 +42,16 @@ def readTrainingImages(path, percentage):
                 addImageDetails(path + folder + "/" + file, images)
                 break
     return images
+from sklearn import svm
+
 
 if __name__ == "__main__":
 
     #How many images from each training set should be included, in range (0, 1].
-    percentage = 0.05
+    percentage = 0.01
 
-    path = "train/Images/"
+   # path = "train/Images/"
+    path = "GTSRB/Final_Training/Images/"
 
     images = readTrainingImages(path, percentage)
 
@@ -57,16 +63,28 @@ if __name__ == "__main__":
     #dataset.data should be a 2D array where first index is the n'th image and each image maps
     #to the features of the image. I guess this is a 1D array of HoG features? 
     #dataset.target should be a 1D array where n'th element is the expected categorization of the n'th image
-
+	
+	#DEMO of learning
+    data = []
+    target = []
+    hog = HoG.HoG()
+	#Possibly will require rescaling of images
+    for i in images:
+		data.append(images[i]["HoG"])
+		target.append(images[i]["SIGNTYPE"])
+		
+    svm = svm.SVC(gamma=0.001,C=100.)
+    svm.fit(data,target)
+    print svm.predict(data[0])
 
     #OLD: Open a random image for viewing
-    image = random.choice(images.keys())
+  #  image = random.choice(images.keys())
+	
+  #  img = images[image]
+  #  cv2.rectangle(img["IMAGE"],(img["Y1"],img["X1"]),(img["Y2"],img["X2"]),(255,0,0),1)
+  #  cv2.imshow("Test",img["IMAGE"])
 
-    img = images[image]
-    cv2.rectangle(img["IMAGE"],(img["Y1"],img["X1"]),(img["Y2"],img["X2"]),(255,0,0),1)
-    cv2.imshow("Test",img["IMAGE"])
-
-    while True:
-        k=cv2.waitKey(1) & 0xFF
-        if k== 27: break
-    cv2.destroyAllWindows()
+  #  while True:
+  #      k=cv2.waitKey(1) & 0xFF
+  #      if k== 27: break
+  #  cv2.destroyAllWindows()
