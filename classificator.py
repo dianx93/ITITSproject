@@ -34,7 +34,8 @@ def readTrainingImages(path, percentage):
             if file.endswith("ppm"):
                 images[file] = {"IMAGE": cv2.imread(path + folder + "/" + file)}
                 images[file]["SIGNTYPE"] = sign_type
-                images[file]["HoG"] = hog.getHoG(images[file]["IMAGE"])
+				#Calculates HoG for rescaled image. 
+                images[file]["HoG"] = hog.getHoG(images[file]["IMAGE"],(64,64))
 
         # Read the .csv file containing the bounding boxes of traffic signs
         for file in files:
@@ -67,15 +68,15 @@ if __name__ == "__main__":
 	#DEMO of learning
     data = []
     target = []
-    hog = HoG.HoG()
-	#Possibly will require rescaling of images
+    width = 0
+    height = 0
     for i in images:
-		data.append(images[i]["HoG"])
+		data.append(images[i]["HoG"].tolist())
 		target.append(images[i]["SIGNTYPE"])
-		
     svm = svm.SVC(gamma=0.001,C=100.)
-    svm.fit(data,target)
+    svm.fit(np.array(data),np.array(target))
     print svm.predict(data[0])
+    print images[images.keys()[0]]["SIGNTYPE"]
 
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
