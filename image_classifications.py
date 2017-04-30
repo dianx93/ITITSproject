@@ -1,5 +1,5 @@
 
-classification = {
+classifications = {
     0: 'speed limit 20',
     1: 'speed limit 30',
     2: 'speed limit 50',
