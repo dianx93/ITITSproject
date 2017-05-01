@@ -44,8 +44,8 @@ def readTrainingImages(path, percentage):
                 break
     return images
 from sklearn import svm
-
-
+import time
+import SinglePixelVoting
 if __name__ == "__main__":
 
     #How many images from each training set should be included, in range (0, 1].
@@ -53,6 +53,7 @@ if __name__ == "__main__":
 
    # path = "train/Images/"
     path = "GTSRB/Final_Training/Images/"
+    pathImages = "streets/"
 
     images = readTrainingImages(path, percentage)
 
@@ -75,9 +76,15 @@ if __name__ == "__main__":
 		target.append(images[i]["SIGNTYPE"])
     svm = svm.SVC(gamma=0.001,C=100.)
     svm.fit(np.array(data),np.array(target))
-    print svm.predict(data[0])
-    print images[images.keys()[0]]["SIGNTYPE"]
-
+	
+    test = cv2.imread(pathImages + "9.png")
+    svp = SinglePixelVoting.SinglePixelVoting()
+    signs = svp.getTrafficSigns(test,10)
+    hog = HoG.HoG()
+    for i in signs:
+		if i.shape[0] == 0 or i.shape[1] == 0:
+			continue
+		print svm.predict(hog.getHoG(i,(64,64)))
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
 	
@@ -86,6 +93,6 @@ if __name__ == "__main__":
   #  cv2.imshow("Test",img["IMAGE"])
 
   #  while True:
-  #      k=cv2.waitKey(1) & 0xFF
-  #      if k== 27: break
+  #     k=cv2.waitKey(1) & 0xFF
+  #     if k== 27: break
   #  cv2.destroyAllWindows()
