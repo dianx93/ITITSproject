@@ -1,5 +1,5 @@
 import numpy as np
-import cv2
+import cv2, math
 
 #For reference, see chapter 2.1 of http://perso.lcpc.fr/tarel.jean-philippe/publis/jpt-icpr10.pdf
 class SinglePixelVoting:
@@ -72,6 +72,19 @@ def drawRectsOnImage(img, contours, minSize, color):
 
 	return img
 
+#Normalizes the input array.
+def normalize(v):
+    norm=np.linalg.norm(v)
+    if norm==0:
+       return v
+    return v/norm
+
+#Returns the angle between lines ab and bc where a, b, c are [x, y] numpy arrays
+def angle(a, b, c):
+	return math.degrees(math.acos(np.dot(
+		(normalize(np.subtract(a, b))),
+		(normalize(np.subtract(c, b))))))
+
 def isContained(rect, others):
 	for i in others:
 		if rect[0] > i[0] and rect[1]>i[1] and \
@@ -80,10 +93,25 @@ def isContained(rect, others):
 			return True
 	return False
 
+#Removes all the contours that are smaller than the given size and is convex.
+def removeBadContours(contours, minSize):
+	out = []
+
+	for contour in contours:
+		x, y, w, h = cv2.boundingRect(contour)
+		#Simple size check
+		if w < minSize or h < minSize:
+			continue
+
+		#TODO: move the angle validation stuff here at some point
+
+		out.append(contour)
+
+	return out
 
 spv = SinglePixelVoting()
 
-#images = { 7, 9 }
+#images = { 2 }
 images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
 showImages = False
 saveToFiles = True
@@ -99,12 +127,57 @@ for imageId in images:
 	redMask = spv.getRedMask(image, 0.75, 1).astype(np.uint8)
 	#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
 	im2,redContours,_ = cv2.findContours(redMask,1,2)
-	drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
+	redContours = removeBadContours(redContours, minRectSize)
+	#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
+	#image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
 
-	blueMask = spv.getBlueMask(image, 0.7, 1, 0.075, 0.4).astype(np.uint8)
+	for contour in redContours:
+		#1. Calculate convex hull of the contour
+		hull = cv2.convexHull(contour)
+		hullLen = cv2.arcLength(hull, True)
+
+		#TODO: Optimize the step size and bounds, our goal is
+		# to find the approximation with length 3 and make sure we don't miss it
+		for i in np.arange(0.02, 1, 0.02):
+			epsilon = i * hullLen
+			approx = cv2.approxPolyDP(hull, epsilon, True)
+			l = len(approx)
+			if l < 3:
+				#No good results :(
+				break
+			elif l == 3:
+				#We have found a triangle approximation for this contour
+
+				#See if all the contour angles are within our limits
+				minAngle = 35
+				maxAngle = 85
+				anglesOk = True
+
+				for i in range(0, l):
+					p1 = tuple(approx[i][0])
+					p2 = approx[(i + 1) % l][0]
+					p3 = approx[(i + 2) % l][0]
+
+					ang = angle(p1, p2, p3)
+
+					if ang < minAngle or ang > maxAngle:
+						anglesOk = False
+						break
+
+				#If all angles were within limits, draw the triangle
+				if anglesOk:
+					for i in range(0, l):
+						p1 = tuple(approx[i][0])
+						p2 = approx[(i + 1) % l][0]
+						cv2.line(image, tuple(p1), tuple(p2), redSignsColor, 1)
+
+				break
+
+	#blueMask = spv.getBlueMask(image, 0.7, 1, 0.075, 0.4).astype(np.uint8)
 	#tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
-	im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
-	drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
+	#cv2.imshow("Test", tresh)
+	#im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+	#drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
 
 	if saveToFiles:
 		cv2.imwrite("output/" + str(imageId) + ".png", image)
