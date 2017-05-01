@@ -4,7 +4,7 @@ import cv2, math
 #For reference, see chapter 2.1 of http://perso.lcpc.fr/tarel.jean-philippe/publis/jpt-icpr10.pdf
 class SinglePixelVoting:
 	
-	def getTrafficSigns(image, minsize):
+	def getTrafficSigns(image, minSize):
 		minRectSize = minSize
 		redSignsColor = [255, 255, 0]
 		blueSignsColor = [0, 255, 255]
