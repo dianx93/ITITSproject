@@ -111,8 +111,8 @@ def removeBadContours(contours, minSize):
 
 spv = SinglePixelVoting()
 
-images = { 9 }
-#images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
+#images = { 2 }
+images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
 showImages = False
 saveToFiles = True
 
@@ -121,12 +121,12 @@ redSignsColor = [255, 255, 0]
 blueSignsColor = [0, 255, 255]
 
 for imageId in images:
-	print imageId
+	print "Image " + str(imageId)
 	image = cv2.imread("streets/" + str(imageId) + ".png")
 
 	#Optimal parameters for finding everything: 0.65 and 1.03
 	redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
-	#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
+	tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
 	im2,redContours,_ = cv2.findContours(redMask,1,2)
 	redContours = removeBadContours(redContours, minRectSize)
 	#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
@@ -173,6 +173,19 @@ for imageId in images:
 						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
 
 				break
+
+	#Run circle detection on the image
+	image_grey = cv2.cvtColor(tresh, cv2.COLOR_BGR2GRAY)
+	#cv2.imwrite("output/test.png", image_grey)
+
+	#param1 - it is the higher threshold of the two passed to the Canny() edge detector (the lower one is twice smaller).
+	#param2 - it is the accumulator threshold for the circle centers at the detection stage. The smaller it is, the more
+	# false circles may be detected. Circles, corresponding to the larger accumulator values, will be returned first.
+	circles = cv2.HoughCircles(image_grey, cv2.HOUGH_GRADIENT, 0.5, 10, param1=20, param2=14, minRadius= 5, maxRadius=30)
+	if circles is not None:
+		print "Adding " + str(len(circles[0, :])) + " circles"
+		for circle in circles[0, :]:
+			cv2.circle(image, (circle[0], circle[1]), circle[2], [0, 0, 255], 1)
 
 	#blueMask = spv.getBlueMask(image, 0.7, 1, 0.075, 0.4).astype(np.uint8)
 	#tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
