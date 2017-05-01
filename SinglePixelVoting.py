@@ -96,9 +96,9 @@ class SinglePixelVoting:
 				#See if all the contour angles are within our limits
 				#and one triangle side is roughly parallel to the x axis
 				minAngle = 40
-				maxAngle = 85
+				maxAngle = 80
 				#how many degs can the side roughly parallel to the x axis be rotated in either way
-				rotationError = 20
+				rotationError = 12
 				anglesOk = True
 				oneParallelSide = False
 
@@ -161,6 +161,10 @@ class SinglePixelVoting:
 			#print "Adding " + str(len(circles[0, :])) + " circles"
 			for circle in circles[0, :]:
 				cv2.circle(image, (int(minX + circle[0]), int(minY + circle[1])), circle[2], [0, 0, 255], 1)
+
+			return True
+		else:
+			return False
 
 
 #Draws rectangles on the image. Does not draw rectangles with width/height smaller than minSize or rectangles
