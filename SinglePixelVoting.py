@@ -111,8 +111,8 @@ def removeBadContours(contours, minSize):
 
 spv = SinglePixelVoting()
 
-#images = { 2 }
-images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
+images = { 9 }
+#images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
 showImages = False
 saveToFiles = True
 
@@ -124,12 +124,13 @@ for imageId in images:
 	print imageId
 	image = cv2.imread("streets/" + str(imageId) + ".png")
 
-	redMask = spv.getRedMask(image, 0.75, 1).astype(np.uint8)
+	#Optimal parameters for finding everything: 0.65 and 1.03
+	redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
 	#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
 	im2,redContours,_ = cv2.findContours(redMask,1,2)
 	redContours = removeBadContours(redContours, minRectSize)
 	#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
-	#image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
+	image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
 
 	for contour in redContours:
 		#1. Calculate convex hull of the contour
@@ -169,7 +170,7 @@ for imageId in images:
 					for i in range(0, l):
 						p1 = tuple(approx[i][0])
 						p2 = approx[(i + 1) % l][0]
-						cv2.line(image, tuple(p1), tuple(p2), redSignsColor, 1)
+						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
 
 				break
 
