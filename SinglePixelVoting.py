@@ -21,16 +21,24 @@ class SinglePixelVoting:
 							mask[y][x] = 255
 		return mask
 
-	#TODO: doesn't work yet
-	def getBlueMask(self, image, ar = 0.35):
-		bluemask = np.zeros((image.shape[0], image.shape[1]))
+	def getBlueMask(self, image, ar, br, luminanceMin, luminanceMax):
+		mask = np.zeros((image.shape[0], image.shape[1]))
 
 		for y in range(image.shape[0]):
 			for x in range(image.shape[1]):
-				bluecondition = image[y][x][0] / 255.0 > ar * (image[y][x][1] + image[y][x][2]) / 255.0
-				bluemask[y][x] = 1 if bluecondition else 0
+				blue = image[y][x][0]
+				green = image[y][x][1]
+				red = image[y][x][2]
 
-		return bluemask
+				if blue / 255.0 > ar * (green / 255.0 + red / 255.0):
+					#Blue color dominates
+					if blue/255.0 - max(green,red)/255.0 > br*(max(green,red) - min(green,red))/255.0:
+						#It's not too cyan or whatever
+						luminance = (0.3 * red + 0.59 * green + 0.11 * blue)/255.0
+						if luminance >= luminanceMin and luminance <= luminanceMax:
+							mask[y][x] = 255
+
+		return mask
 
 
 #Draws rectangles on the image. Does not draw rectangles with width/height smaller than minSize or rectangles
@@ -75,30 +83,34 @@ def isContained(rect, others):
 
 spv = SinglePixelVoting()
 
-images = { 9 }
+#images = { 7, 9 }
 images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
 showImages = False
 saveToFiles = True
+
+minRectSize = 10
+redSignsColor = [255, 255, 0]
+blueSignsColor = [0, 255, 255]
 
 for imageId in images:
 	print imageId
 	image = cv2.imread("streets/" + str(imageId) + ".png")
 
-	red = spv.getRedMask(image, 0.75, 1)
-
-	red = red.astype(np.uint8)
-	tresh = cv2.cvtColor(red, cv2.COLOR_GRAY2BGR)
-	im2,redContours,_ = cv2.findContours(red,1,2)
-
-	minRectSize = 10
-	redSignsColor = [255, 255, 0]
+	redMask = spv.getRedMask(image, 0.75, 1).astype(np.uint8)
+	#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
+	im2,redContours,_ = cv2.findContours(redMask,1,2)
 	drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
+
+	blueMask = spv.getBlueMask(image, 0.7, 1, 0.075, 0.4).astype(np.uint8)
+	#tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
+	im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+	drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
 
 	if saveToFiles:
 		cv2.imwrite("output/" + str(imageId) + ".png", image)
 
-	if showImages:
-		cv2.imshow("Test",image)
+	#if showImages:
+		#cv2.imshow("Test",image)
 
 if showImages:
 	while True:
