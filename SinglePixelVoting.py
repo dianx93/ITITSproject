@@ -14,8 +14,6 @@ class SinglePixelVoting:
 				redmask[y][x] = 255 if condition and condition2 else 0 
 				
 				bluecondition = image[y][x][0]/255.0 > ar*(image[y][x][1]+image[y][x][2])/255.0
-				print image[y][x][0]/255.0
-				print ar*(image[y][x][1]+image[y][x][2])/255.0
 				bluemask[y][x] = 1 if bluecondition else 0 
 		
 		return redmask,bluemask
@@ -33,6 +31,8 @@ im2,contours,_ = cv2.findContours(red,1,2)
 
 for i in contours:
 	x,y,w,h = cv2.boundingRect(i)
+	if w < 15 or h < 15:
+		continue
 	cv2.rectangle(image,(x,y),(x+w,y+h),(0,255,0),2)
 	
 cv2.imshow("Test",image)
