@@ -3,7 +3,22 @@ import cv2, math
 
 #For reference, see chapter 2.1 of http://perso.lcpc.fr/tarel.jean-philippe/publis/jpt-icpr10.pdf
 class SinglePixelVoting:
-
+	
+	def getTrafficSigns(image, minsize):
+		minRectSize = minSize
+		redSignsColor = [255, 255, 0]
+		blueSignsColor = [0, 255, 255]
+		
+		possibleSigns = []
+		redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
+		im2,redContours,_ = cv2.findContours(redMask,1,2)
+		redContours = removeBadContours(redContours, minRectSize)
+		#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
+		image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
+		
+		#TODO move methods to class, get list of possible traffic signs
+		return possibleSigns
+		
 	#Extracts the red part of the image with some tresholding.
 	def getRedMask(self, image, ar, br):
 		mask = np.zeros((image.shape[0],image.shape[1]))
