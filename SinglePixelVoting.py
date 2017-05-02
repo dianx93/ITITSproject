@@ -74,7 +74,7 @@ class SinglePixelVoting:
 			hullLen = cv2.arcLength(hull, True)
 
 			if (self.isTriangularSign(image, contour, hull, hullLen)
-				or self.isCircularSign(image, mask, contour) or self.isRectangluarSign(image,contour,hull,hullLen)):
+				or self.isCircularSign(image, contour, hull, hullLen, mask) or self.isRectangluarSign(image,contour,hull,hullLen)):
 				out.append(contour)
 
 		return out
@@ -196,7 +196,21 @@ class SinglePixelVoting:
 				return anglesOk
 		return True
 
-	def isCircularSign(self, image, mask, contour):
+	def isCircularSign(self, image, contour, hull, hullLen, mask):
+		for i in np.arange(0.06, 0.2, 0.02):
+				epsilon = i * hullLen
+				approx = cv2.approxPolyDP(hull, epsilon, True)
+				l = len(approx)
+				if l < 5:
+					#No good results :(
+					break
+				elif l >= 5:
+					for i in range(0, l):
+						p1 = tuple(approx[i][0])
+						p2 = approx[(i + 1) % l][0]
+						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
+					return True
+		return False
 		x, y, w, h = cv2.boundingRect(contour)
 		offset = 30
 
@@ -279,12 +293,12 @@ def isContained(rect, others):
 if __name__ == "__main__":
 	spv = SinglePixelVoting()
 
-	images = { 7 }
+	images = { 2,5,8,10,11 }
 	#images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
 	showImages = False
 	saveToFiles = True
 
-	minRectSize = 10
+	minRectSize = 5
 	maxRectSize = 50
 	redSignsColor = [255, 255, 0]
 	blueSignsColor = [0, 255, 255]
@@ -292,26 +306,29 @@ if __name__ == "__main__":
 	for imageId in images:
 		print "Image " + str(imageId)
 		image = cv2.imread("streets/" + str(imageId) + ".png")
-		kernel = np.ones((3,3),np.uint8)
+		kernel = np.ones((4,4),np.uint8)
 		#image = cv2.erode(image,kernel,iterations=1)
 		#image = cv2.dilate(image,kernel,iterations=1)
-		#redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
-		#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
-		#im2,redContours,_ = cv2.findContours(redMask,1,2)
-		#redContours = spv.removeBadContours(image, redMask, redContours, minRectSize, maxRectSize)
+		redMask = spv.getRedMask(image, 0.60, 1.87).astype(np.uint8)
+		redMask = cv2.dilate(redMask,kernel,iterations=1)
+		redMask = cv2.erode(redMask,kernel,iterations=1)
+		tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
+		im2,redContours,_ = cv2.findContours(redMask,1,2)
+		redContours = spv.removeBadContours(image, redMask, redContours, minRectSize, maxRectSize)
 		#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
 		
-		#image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
+		#redMask = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
+		image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
 		
 		#blueMask = spv.getBlueMask(image, 0.4, 0.7, 0.1, 0.5).astype(np.uint8)
-		blueMask = spv.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
-		tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
+		#blueMask = spv.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
+		#tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
 		#cv2.imshow("Test", tresh)
-		im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
-		blueContours = spv.removeBadContours(image, blueMask, blueContours, minRectSize, maxRectSize)
+		#im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+		#blueContours = spv.removeBadContours(image, blueMask, blueContours, minRectSize, maxRectSize)
 		#drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
 		
-		image = cv2.drawContours(image, blueContours, -1, blueSignsColor, 1)
+		#image = cv2.drawContours(image, blueContours, -1, blueSignsColor, 1)
 		if saveToFiles:
 			cv2.imwrite("output/" + str(imageId) + ".png", image)
 
