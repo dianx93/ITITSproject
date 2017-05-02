@@ -52,9 +52,22 @@ class SinglePixelVoting:
 		red = pixel[2]
 		# Note: division by 255.0 is important to prevent overflows
 		if blue / 255.0 > ar * (green / 255.0 + red / 255.0):
-			# Red color dominates
+			# Bue color dominates
 			if blue / 255.0 - max(green, red) / 255.0 > br * (max(green, red) - min(green, red)) / 255.0:
-				# It's not too yellow or magenta
+				# It's not too much of other colors
+				return True
+		return False
+
+	#Returns if a pixel is green enough based on the arguments. Pixel should be an BGR array.
+	def isGreenEnough(self, pixel, ar, br):
+		blue = pixel[0]
+		green = pixel[1]
+		red = pixel[2]
+		# Note: division by 255.0 is important to prevent overflows
+		if green / 255.0 > ar * (blue / 255.0 + red / 255.0):
+			# Green color dominates
+			if green / 255.0 - max(blue, red) / 255.0 > br * (max(blue, red) - min(blue, red)) / 255.0:
+				# It's not toomuch of other colors
 				return True
 		return False
 
@@ -259,7 +272,10 @@ class SinglePixelVoting:
 
 		#print(str(minX) + " - " + str(maxX) + " " + str(minY) + " - " + str(maxY))
 		#Cut a rectangular region around the contour
-		subimage = mask[minY:maxY, minX:maxX]
+		#subimage = mask[minY:maxY, minX:maxX]
+		subimage = image[minY:maxY, minX:maxX]
+		subimage = cv2.blur(subimage, (3, 3))
+		subimage = self.getRedMask(subimage, 0.63, 1.1).astype(np.uint8)
 
 		# param1 - it is the higher threshold of the two passed to the Canny() edge detector (the lower one is twice smaller).
 		# param2 - it is the accumulator threshold for the circle centers at the detection stage. The smaller it is, the more
@@ -358,8 +374,8 @@ def isContained(rect, others):
 if __name__ == "__main__":
 	spv = SinglePixelVoting()
 
-	#images = { 8 }
-	images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
+	images = { 10 }
+	#images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
 	showImages = False
 	saveToFiles = True
 
