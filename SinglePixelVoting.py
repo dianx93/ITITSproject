@@ -247,7 +247,40 @@ class SinglePixelVoting:
 
 				return anglesOk
 		return True
-
+	
+	def circleIntersectionArea(self, circle1, circle2):
+		r0 = circles1[2]
+		r1 = circles2[2]
+		rr1 = r1*r1
+		rr0 = r0*r0
+		d = ((circles1[0]-circles2[0])**2 + (circles1[1]-circles2[1])**2)**0.5
+		if d > r1+r0:
+			# no overlap
+			return 0
+			
+		if d <=	abs(r0-r1) and r0 >= r1:
+			# r1 is completely in r0
+			return 1
+			
+		if 	d <= abs(r0-r1) and r0 < r1:
+			# r0 is completely in r1
+			return -1
+			
+		phi = (math.acos((rr0 + (d * d) - rr1) / (2 * r0 * d))) * 2	
+		theta = (math.acos((rr1 + (d * d) - rr0) / (2 * r1 * d))) * 2
+		area1 = 0.5 * theta * rr1 - 0.5 * rr1 * math.sin(theta)
+		area2 = 0.5 * phi * rr0 - 0.5 * rr0 * math.sin(phi)
+		
+		intersection_area = area1 + area2
+		
+		if r0 >= r1:
+			# r1 is more than 50% in the other circle
+			return intersection_area/math.pi*rr1 
+			
+		if r0 < r1:
+			# r0 is more than 50% in the other circle
+			return -intersection_area/ math.pi*rr0 >= 0.5
+			
 	def isCircularSign(self, image, contour, hull, hullLen, mask):
 		x, y, w, h = cv2.boundingRect(contour)
 		offset = 30
@@ -265,7 +298,20 @@ class SinglePixelVoting:
 		# param2 - it is the accumulator threshold for the circle centers at the detection stage. The smaller it is, the more
 		# false circles may be detected. Circles, corresponding to the larger accumulator values, will be returned first.
 		circles = cv2.HoughCircles(subimage, cv2.HOUGH_GRADIENT, 0.5, 10, param1=20, param2=14, minRadius=5,
-								   maxRadius=30)
+								   maxRadius=30) 
+		#Remove overlapping circles   
+		if circles is not None:
+			temp = []
+			for i in range(len(circles)):
+				for j in range(i+1,len(circles)):
+					intersectionarea = self.circleIntersectionArea(circles[i], circles[j])
+					if intersectionarea <= -0.5:
+						temp.append(circles[i])
+					elif intersectionarea >= 0.5:
+						temp.append(circles[j])
+			circles = np.array([i for i in circles if i not in temp])
+						
+		
 		if circles is not None:
 			#print "Adding " + str(len(circles[0, :])) + " circles"
 			for circle in circles[0, :]:
