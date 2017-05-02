@@ -28,17 +28,33 @@ class SinglePixelVoting:
 		mask = np.zeros((image.shape[0],image.shape[1]))
 		for y in range(image.shape[0]):
 			for x in range(image.shape[1]):
-				blue = image[y][x][0]
-				green = image[y][x][1]
-				red = image[y][x][2]
-
-				#Note: division by 255.0 is important to prevent overflows
-				if red/255.0 > ar*(green/255.0+blue/255.0):
-					#Red color dominates
-					if red/255.0 - max(green,blue)/255.0 > br*(max(green,blue) - min(green,blue))/255.0:
-						#It's not too yellow or magenta
-							mask[y][x] = 255
+				if self.isRedEnough(image[y][x], ar, br):
+					mask[y][x] = 255
 		return mask
+
+	#Returns if a pixel is red enough based on the arguments. Pixel should be an BGR array.
+	def isRedEnough(self, pixel, ar, br):
+		blue = pixel[0]
+		green = pixel[1]
+		red = pixel[2]
+		# Note: division by 255.0 is important to prevent overflows
+		if red / 255.0 > ar * (green / 255.0 + blue / 255.0):
+			# Red color dominates
+			if red / 255.0 - max(green, blue) / 255.0 > br * (max(green, blue) - min(green, blue)) / 255.0:
+				# It's not too yellow or magenta
+				return True
+		return False
+
+	#Returns if the pixel's r,g,b values are within tolerance of one another
+	def isGreyscale(self, pixel, tolerance):
+		blue = pixel[0]
+		green = pixel[1]
+		red = pixel[2]
+
+		maxDiff = max(abs(blue/255.0 - green/255.0), abs(blue/255.0 - red/255.0), abs(green/255.0 - red/255.0))
+
+		return maxDiff <= tolerance
+
 
 	def getBlueMask(self, image, ar, br, luminanceMin, luminanceMax):
 		mask = np.zeros((image.shape[0], image.shape[1]))
@@ -60,7 +76,7 @@ class SinglePixelVoting:
 		return mask
 
 	# Removes all the contours that are smaller than the given size.
-	def removeBadContours(self, image, mask, contours, minSize, maxSize):
+	def removeBadRedContours(self, image, mask, contours, minSize, maxSize):
 		out = []
 
 		for contour in contours:
@@ -74,7 +90,8 @@ class SinglePixelVoting:
 			hullLen = cv2.arcLength(hull, True)
 
 			if (self.isTriangularSign(image, contour, hull, hullLen)
-				or self.isCircularSign(image, contour, hull, hullLen, mask) or self.isRectangluarSign(image,contour,hull,hullLen)):
+				or self.isCircularSign(image, contour, hull, hullLen, mask)):
+				#or self.isRectangluarSign(image,contour,hull,hullLen)):
 				out.append(contour)
 
 		return out
@@ -186,31 +203,39 @@ class SinglePixelVoting:
 							oneParallelSide = False
 							break
 
+				redEnoughPixels = 0;
+				for i in range(0, l):
+					p1 = tuple(approx[i][0])
+
+					if self.isRedEnough(image[p1[1]][p1[0]], 0.72, 1.1):
+						redEnoughPixels += 1
+
 				#if all angles were within limits, draw the triangle
-				if anglesOk and oneParallelSide:
-					for i in range(0, l):
-						p1 = tuple(approx[i][0])
-						p2 = approx[(i + 1) % l][0]
-						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
+				if anglesOk and oneParallelSide and redEnoughPixels > 1:
+
+					p1 = tuple(approx[0][0])
+					p2 = tuple(approx[1][0])
+					p3 = tuple(approx[2][0])
+
+					center = ((p1[0] + p2[0] + p3[0]) / 3, (p1[1] + p2[1] + p3[1]) / 3)
+
+					greyscalePixels = 0
+					width = 1
+					for y in range(center[1] - width, center[1] + width + 1):
+						for x in range(center[0] - width, center[0] + width + 1):
+							if self.isGreyscale(image[y][x], 0.06):
+								greyscalePixels += 1
+
+					if greyscalePixels > 5:
+						for i in range(0, l):
+							p1 = tuple(approx[i][0])
+							p2 = approx[(i + 1) % l][0]
+							cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
 
 				return anglesOk
 		return True
 
 	def isCircularSign(self, image, contour, hull, hullLen, mask):
-		for i in np.arange(0.06, 0.2, 0.02):
-				epsilon = i * hullLen
-				approx = cv2.approxPolyDP(hull, epsilon, True)
-				l = len(approx)
-				if l < 5:
-					#No good results :(
-					break
-				elif l >= 5:
-					for i in range(0, l):
-						p1 = tuple(approx[i][0])
-						p2 = approx[(i + 1) % l][0]
-						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 0], 1)
-					return True
-		return False
 		x, y, w, h = cv2.boundingRect(contour)
 		offset = 30
 
@@ -293,8 +318,8 @@ def isContained(rect, others):
 if __name__ == "__main__":
 	spv = SinglePixelVoting()
 
-	images = { 2,5,8,10,11 }
-	#images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
+	#images = { 7 }
+	images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
 	showImages = False
 	saveToFiles = True
 
@@ -309,16 +334,16 @@ if __name__ == "__main__":
 		kernel = np.ones((4,4),np.uint8)
 		#image = cv2.erode(image,kernel,iterations=1)
 		#image = cv2.dilate(image,kernel,iterations=1)
-		redMask = spv.getRedMask(image, 0.60, 1.87).astype(np.uint8)
-		redMask = cv2.dilate(redMask,kernel,iterations=1)
-		redMask = cv2.erode(redMask,kernel,iterations=1)
+		redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
+		#redMask = cv2.dilate(redMask,kernel,iterations=1)
+		#redMask = cv2.erode(redMask,kernel,iterations=1)
 		tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
 		im2,redContours,_ = cv2.findContours(redMask,1,2)
-		redContours = spv.removeBadContours(image, redMask, redContours, minRectSize, maxRectSize)
+		redContours = spv.removeBadRedContours(image, redMask, redContours, minRectSize, maxRectSize)
 		#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
 		
 		#redMask = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
-		image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
+		#image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
 		
 		#blueMask = spv.getBlueMask(image, 0.4, 0.7, 0.1, 0.5).astype(np.uint8)
 		#blueMask = spv.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
