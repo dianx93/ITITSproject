@@ -262,11 +262,11 @@ class SinglePixelVoting:
 		return True
 	
 	def circleIntersectionArea(self, circle1, circle2):
-		r0 = circles1[2]
-		r1 = circles2[2]
+		r0 = circle1[2]
+		r1 = circle2[2]
 		rr1 = r1*r1
 		rr0 = r0*r0
-		d = ((circles1[0]-circles2[0])**2 + (circles1[1]-circles2[1])**2)**0.5
+		d = ((circle1[0]-circle2[0])**2 + (circle1[1]-circle2[1])**2)**0.5
 		if d > r1+r0:
 			# no overlap
 			return 0
@@ -318,14 +318,15 @@ class SinglePixelVoting:
 		#Remove overlapping circles   
 		if circles is not None:
 			temp = []
-			for i in range(len(circles)):
-				for j in range(i+1,len(circles)):
-					intersectionarea = self.circleIntersectionArea(circles[i], circles[j])
+			for i in range(len(circles[0])):
+				for j in range(i+1,len(circles[0])):
+					intersectionarea = self.circleIntersectionArea(circles[0][i], circles[0][j])
 					if intersectionarea <= -0.5:
-						temp.append(circles[i])
+						temp.append(circles[0][i])
 					elif intersectionarea >= 0.5:
-						temp.append(circles[j])
-			circles = np.array([i for i in circles if i not in temp])
+						temp.append(circles[0][j])
+			#Vaja see filter paika saada siis peaks töötamas
+			circles[0] = [i for i in circles[0] if i not in temp]
 						
 		
 		if circles is not None:
