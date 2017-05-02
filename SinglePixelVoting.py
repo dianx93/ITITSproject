@@ -74,10 +74,67 @@ class SinglePixelVoting:
 			hullLen = cv2.arcLength(hull, True)
 
 			if (self.isTriangularSign(image, contour, hull, hullLen)
-				or self.isCircularSign(image, mask, contour)):
+				or self.isCircularSign(image, mask, contour) or self.isRectangluarSign(image,contour,hull,hullLen)):
 				out.append(contour)
 
 		return out
+
+	def isRectangluarSign(self, image, contour, hull, hullLen):
+		for i in np.arange(0.06, 0.2, 0.02):
+			epsilon = i * hullLen
+			approx = cv2.approxPolyDP(hull, epsilon, True)
+			l = len(approx)
+			#print(str(i) + " " + str(l))
+			if l < 4:
+				#No good results :(
+				break
+			elif l == 4:
+				#We have found a triangle approximation for this contour
+				#See if all the contour angles are within our limits
+				#and one triangle side is roughly parallel to the x axis
+				minAngle = 70
+				maxAngle = 110
+				#how many degs can the side roughly parallel to the x axis be rotated in either way
+				rotationError = 12
+				anglesOk = True
+				oneParallelSide = False
+
+				for i in range(0, l):
+					p1 = tuple(approx[i][0])
+					p2 = approx[(i + 1) % l][0]
+					p3 = approx[(i + 2) % l][0]
+
+					ang = angle(p1, p2, p3)
+
+					if ang < minAngle or ang > maxAngle:
+						anglesOk = False
+						break
+
+					slopeAng = math.degrees(math.atan2(p2[0] * 1.0 - p1[0], p2[1] * 1.0 - p1[1]))
+					#Normalize to [0, 180)
+					if slopeAng < 0:
+						slopeAng += 180
+
+					if(slopeAng > 90 - rotationError and slopeAng < 90 + rotationError):
+						#The line is roughly parallel to the x axis
+						if oneParallelSide is False:
+							oneParallelSide = True
+						else:
+							#One other side was already found to be roughly parallel to
+							#the x axis, abort
+							anglesOk = False
+							oneParallelSide = False
+							break
+
+				#if all angles were within limits, draw the triangle
+				if anglesOk and oneParallelSide:
+					for i in range(0, l):
+						p1 = tuple(approx[i][0])
+						p2 = approx[(i + 1) % l][0]
+						cv2.line(image, tuple(p1), tuple(p2),  [0, 255, 255], 1)
+
+				return anglesOk
+		return True
 
 	def isTriangularSign(self, image, contour, hull, hullLen):
 		#TODO: Optimize the step size and bounds, our goal is to find
@@ -222,8 +279,8 @@ def isContained(rect, others):
 if __name__ == "__main__":
 	spv = SinglePixelVoting()
 
-	#images = { 9 }
-	images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
+	images = { 7 }
+	#images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
 	showImages = False
 	saveToFiles = True
 
@@ -235,20 +292,26 @@ if __name__ == "__main__":
 	for imageId in images:
 		print "Image " + str(imageId)
 		image = cv2.imread("streets/" + str(imageId) + ".png")
-
-		redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
-		tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
-		im2,redContours,_ = cv2.findContours(redMask,1,2)
-		redContours = spv.removeBadContours(image, redMask, redContours, minRectSize, maxRectSize)
+		kernel = np.ones((3,3),np.uint8)
+		#image = cv2.erode(image,kernel,iterations=1)
+		#image = cv2.dilate(image,kernel,iterations=1)
+		#redMask = spv.getRedMask(image, 0.65, 1.03).astype(np.uint8)
+		#tresh = cv2.cvtColor(redMask, cv2.COLOR_GRAY2BGR)
+		#im2,redContours,_ = cv2.findContours(redMask,1,2)
+		#redContours = spv.removeBadContours(image, redMask, redContours, minRectSize, maxRectSize)
 		#drawRectsOnImage(image, redContours, minRectSize, redSignsColor)
+		
 		#image = cv2.drawContours(image, redContours, -1, redSignsColor, 1)
-
-		#blueMask = spv.getBlueMask(image, 0.7, 1, 0.075, 0.4).astype(np.uint8)
-		#tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
+		
+		#blueMask = spv.getBlueMask(image, 0.4, 0.7, 0.1, 0.5).astype(np.uint8)
+		blueMask = spv.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
+		tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
 		#cv2.imshow("Test", tresh)
-		#im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+		im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+		blueContours = spv.removeBadContours(image, blueMask, blueContours, minRectSize, maxRectSize)
 		#drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
-
+		
+		image = cv2.drawContours(image, blueContours, -1, blueSignsColor, 1)
 		if saveToFiles:
 			cv2.imwrite("output/" + str(imageId) + ".png", image)
 
