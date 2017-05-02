@@ -45,6 +45,19 @@ class SinglePixelVoting:
 				return True
 		return False
 
+	#Returns if a pixel is blue enough based on the arguments. Pixel should be an BGR array.
+	def isBlueEnough(self, pixel, ar, br):
+		blue = pixel[0]
+		green = pixel[1]
+		red = pixel[2]
+		# Note: division by 255.0 is important to prevent overflows
+		if blue / 255.0 > ar * (green / 255.0 + red / 255.0):
+			# Red color dominates
+			if blue / 255.0 - max(green, red) / 255.0 > br * (max(green, red) - min(green, red)) / 255.0:
+				# It's not too yellow or magenta
+				return True
+		return False
+
 	#Returns if the pixel's r,g,b values are within tolerance of one another
 	def isGreyscale(self, pixel, tolerance):
 		blue = pixel[0]
@@ -256,7 +269,34 @@ class SinglePixelVoting:
 		if circles is not None:
 			#print "Adding " + str(len(circles[0, :])) + " circles"
 			for circle in circles[0, :]:
-				cv2.circle(image, (int(minX + circle[0]), int(minY + circle[1])), circle[2], [0, 0, 255], 1)
+				center = (int(minX + circle[0]), int(minY + circle[1]))
+
+
+				goodPixels = 0
+				width = max(1, min(8, (int)(circle[2] * 0.8)))
+				totalPixels = ((width * 2 + 1) * (width *2 + 1))
+
+				averageBrightness = 0
+
+				for y in range(center[1] - width, center[1] + width + 1):
+					for x in range(center[0] - width, center[0] + width + 1):
+						brightness = image[y][x][0]/3.0 + image[y][x][1]/3.0 + image[y][x][2]/3.0
+						averageBrightness += brightness / float(totalPixels)
+						if (self.isGreyscale(image[y][x], 0.12)
+							or self.isRedEnough(image[y][x], 0.7, 1.0)
+							or self.isBlueEnough(image[y][x], 0.75, 1.2)):
+							goodPixels += 1
+
+				goodPercent = goodPixels / float(totalPixels)
+
+				#Convert to [0, 1]
+				averageBrightness = averageBrightness / 255.0;
+
+				#print ("Radius:" + str(circle[2]) + " width: " + str(width))
+				print "Good: " + str(goodPercent) + " Brightness:" + str(averageBrightness)
+
+				if goodPercent > 0.8 and averageBrightness > 0.15:
+					cv2.circle(image, (int(minX + circle[0]), int(minY + circle[1])), circle[2], [0, 0, 255], 1)
 
 			return True
 		else:
@@ -318,7 +358,7 @@ def isContained(rect, others):
 if __name__ == "__main__":
 	spv = SinglePixelVoting()
 
-	#images = { 7 }
+	#images = { 8 }
 	images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
 	showImages = False
 	saveToFiles = True
