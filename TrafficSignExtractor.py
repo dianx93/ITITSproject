@@ -4,13 +4,12 @@ import cv2, math
 
 class TrafficSignExtractor:
     def processTestingImages(self):
-        images = {10}
-        # images = { 2, 4, 5, 6, 7, 8, 9, 10, 11 }
+        #images = {14}
+        images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 }
 
         minRectSize = 5
         maxRectSize = 50
-        redSignsColor = [255, 255, 0]
-        blueSignsColor = [0, 255, 255]
+        signColor = [255, 255, 0]
 
         for imageId in images:
             print "Processing image " + str(imageId)
@@ -21,7 +20,7 @@ class TrafficSignExtractor:
             for rect in trafficSigns:
                 x, y, w, h = rect
                 offset = 5
-                cv2.rectangle(self.outputImage, (x - offset, y - offset), (x + w + offset * 2, y + h + offset * 2), redSignsColor, 1)
+                cv2.rectangle(self.outputImage, (x - offset, y - offset), (x + w + offset * 2, y + h + offset * 2), signColor, 1)
 
             cv2.imwrite("output/" + str(imageId) + ".png", self.outputImage)
 
@@ -30,20 +29,13 @@ class TrafficSignExtractor:
     def getTrafficSigns(self, image, minSize, maxSize):
         self.outputImage = image.copy()
 
-        redSignsColor = [255, 255, 0]
-        blueSignsColor = [0, 255, 255]
+        redSigns = self.getRedTrafficSigns(image, minSize, maxSize)
 
-        #Extract red traffic signs
-        redSigns = self.getRedTrafficSigns(image, minSize, maxSize, redSignsColor)
+        blueSigns = self.getBlueTrafficSigns(image, minSize, maxSize)
 
-        return redSigns
+        return redSigns + blueSigns
 
-    def getRedTrafficSigns(self, image, minSize, maxSize, redSignsColor):
-        # kernel = np.ones((4, 4), np.uint8)
-        # image = cv2.erode(image,kernel,iterations=1)
-        # image = cv2.dilate(image,kernel,iterations=1)
-
-
+    def getRedTrafficSigns(self, image, minSize, maxSize):
         # ===Extract dominant red colors from the image===
         redMask = self.getRedMask(image, 0.65, 1.03).astype(np.uint8)
 
@@ -53,15 +45,39 @@ class TrafficSignExtractor:
 
         #===Find triangular red traffic signs===
         redTriangularSigns = self.getRedTriangularTrafficSigns(image, redContours)
-        print "Triangular signs:"
+        print "Red triangular signs:"
         print redTriangularSigns
 
         #===Find circular red traffic signs===
         redCircularSigns = self.getRedCircularTrafficSigns(image, redContours)
-        print "Circular signs:"
+        print "Red circular signs:"
         print redCircularSigns
 
         return redTriangularSigns + redCircularSigns
+
+    def getBlueTrafficSigns(self, image, minSize, maxSize):
+        # kernel = np.ones((4, 4), np.uint8)
+        # image = cv2.erode(image,kernel,iterations=1)
+        # image = cv2.dilate(image,kernel,iterations=1)
+
+        # ===Extract dominant blue colors from the image===
+        blueMask = self.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
+
+        # ===Find the contours for the extracted blue mask and remove the ones that are too small/big===
+        im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
+        blueContours = self.removeBadContours(blueContours, minSize, maxSize)
+
+        #===Find rectangular blue traffic signs===
+        blueRectangularSigns = self.getBlueRectangularTrafficSigns(image, blueContours)
+        print "Blue rectangular signs:"
+        print blueRectangularSigns
+
+        #===Find circular blue traffic signs===
+        blueCircularSigns = self.getBlueCircularTrafficSigns(image, blueContours)
+        print "Blue circular signs:"
+        print blueCircularSigns
+
+        return blueRectangularSigns + blueCircularSigns
 
     def getRedTriangularTrafficSigns(self, image, redContours):
         out = []
@@ -96,18 +112,39 @@ class TrafficSignExtractor:
 
         return out
 
+    def getBlueRectangularTrafficSigns(self, image, redContours):
+        out = []
+        for contour in redContours:
+            #Calculate the convex hull of the contour
+            hull = cv2.convexHull(contour)
+            hullLen = cv2.arcLength(hull, True)
 
-    def getBlueTrafficSigns(self, image, minSize, maxSize):
-        return
-        # blueMask = spv.getBlueMask(image, 0.4, 0.7, 0.1, 0.5).astype(np.uint8)
-        # blueMask = spv.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
-        # tresh = cv2.cvtColor(blueMask, cv2.COLOR_GRAY2BGR)
-        # cv2.imshow("Test", tresh)
-        # im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
-        # blueContours = spv.removeBadContours(image, blueMask, blueContours, minRectSize, maxRectSize)
-        # drawRectsOnImage(image, blueContours, minRectSize, blueSignsColor)
+            if (self.isBlueRectangularSign(image, contour, hull, hullLen)):
+                out.append(cv2.boundingRect(contour))
 
-        # image = cv2.drawContours(image, blueContours, -1, blueSignsColor, 1)
+        return out
+
+    def getBlueCircularTrafficSigns(self, image, redContours):
+
+        foundCircles = []
+
+        #1. Find all potential circles
+        for contour in redContours:
+            foundCircles += self.getBlueCircularSignPotentialCircles(image, contour)
+
+        #TODO: Remove overlapping circles from foundCircles here
+
+        out = []
+
+        for circle in foundCircles:
+            x = circle[0]
+            y = circle[1]
+            radius = circle[2]
+            cv2.circle(self.outputImage, (x, y), radius, [127, 255, 0], 1)
+            out.append([x - radius, y - radius, radius * 2, radius * 2])
+
+        return out
+
 
     # Extracts the red part of the image with some tresholding.
     def getRedMask(self, image, ar, br):
@@ -188,63 +225,6 @@ class TrafficSignExtractor:
 
         return out
 
-    def isRectangluarSign(self, image, contour, hull, hullLen):
-        for i in np.arange(0.06, 0.2, 0.02):
-            epsilon = i * hullLen
-            approx = cv2.approxPolyDP(hull, epsilon, True)
-            l = len(approx)
-            # print(str(i) + " " + str(l))
-            if l < 4:
-                # No good results :(
-                break
-            elif l == 4:
-                # We have found a triangle approximation for this contour
-                # See if all the contour angles are within our limits
-                # and one triangle side is roughly parallel to the x axis
-                minAngle = 70
-                maxAngle = 110
-                # how many degs can the side roughly parallel to the x axis be rotated in either way
-                rotationError = 12
-                anglesOk = True
-                oneParallelSide = False
-
-                for i in range(0, l):
-                    p1 = tuple(approx[i][0])
-                    p2 = approx[(i + 1) % l][0]
-                    p3 = approx[(i + 2) % l][0]
-
-                    ang = angle(p1, p2, p3)
-
-                    if ang < minAngle or ang > maxAngle:
-                        anglesOk = False
-                        break
-
-                    slopeAng = math.degrees(math.atan2(p2[0] * 1.0 - p1[0], p2[1] * 1.0 - p1[1]))
-                    # Normalize to [0, 180)
-                    if slopeAng < 0:
-                        slopeAng += 180
-
-                    if (slopeAng > 90 - rotationError and slopeAng < 90 + rotationError):
-                        # The line is roughly parallel to the x axis
-                        if oneParallelSide is False:
-                            oneParallelSide = True
-                        else:
-                            # One other side was already found to be roughly parallel to
-                            # the x axis, abort
-                            anglesOk = False
-                            oneParallelSide = False
-                            break
-
-                # if all angles were within limits, draw the triangle
-                if anglesOk and oneParallelSide:
-                    for i in range(0, l):
-                        p1 = tuple(approx[i][0])
-                        p2 = approx[(i + 1) % l][0]
-                        cv2.line(image, tuple(p1), tuple(p2), [0, 255, 255], 1)
-
-                return anglesOk
-        return True
-
     def isRedTriangularSign(self, image, contour, hull, hullLen):
         #Approximate the hull until only 3 points remain
         for i in np.arange(0.06, 0.2, 0.02):
@@ -324,6 +304,55 @@ class TrafficSignExtractor:
 
         return False
 
+    def isBlueRectangularSign(self, image, contour, hull, hullLen):
+        for i in np.arange(0.06, 0.2, 0.02):
+            epsilon = i * hullLen
+            approx = cv2.approxPolyDP(hull, epsilon, True)
+            l = len(approx)
+            # print(str(i) + " " + str(l))
+            if l < 4:
+                # No good results :(
+                break
+            elif l == 4:
+                # We have found a quad approximation for this contour
+                # See if all the contour angles are within our limits
+                # and 2 sides are roughly parallel to the x axis
+                minAngle = 75
+                maxAngle = 105
+                # how many degs can the side roughly parallel to the x axis be rotated in either way
+                rotationError = 10
+                anglesOk = True
+                parallelSides = 0
+
+                for i in range(0, l):
+                    p1 = tuple(approx[i][0])
+                    p2 = approx[(i + 1) % l][0]
+                    p3 = approx[(i + 2) % l][0]
+
+                    ang = angle(p1, p2, p3)
+
+                    if ang < minAngle or ang > maxAngle:
+                        anglesOk = False
+                        break
+
+                    slopeAng = math.degrees(math.atan2(p2[0] * 1.0 - p1[0], p2[1] * 1.0 - p1[1]))
+                    # Normalize to [0, 180)
+                    if slopeAng < 0:
+                        slopeAng += 180
+
+                    if (slopeAng > 90 - rotationError and slopeAng < 90 + rotationError):
+                        # The line is roughly parallel to the x axis
+                        parallelSides += 1
+
+                # if all angles were within limits, draw the triangle
+                if anglesOk and parallelSides == 2:
+                    for i in range(0, l):
+                        p1 = tuple(approx[i][0])
+                        p2 = approx[(i + 1) % l][0]
+                        cv2.line(self.outputImage, tuple(p1), tuple(p2), [0, 255, 255], 1)
+                    return True
+        return False
+
     def circleIntersectionArea(self, circle1, circle2):
         r0 = circle1[2]
         r1 = circle2[2]
@@ -394,6 +423,57 @@ class TrafficSignExtractor:
                         averageBrightness += brightness / float(totalPixels)
                         if (self.isGreyscale(image[y][x], 0.12)
                             or self.isRedEnough(image[y][x], 0.7, 1.0)
+                            or self.isBlueEnough(image[y][x], 0.75, 1.2)):
+                            goodPixels += 1
+
+                goodPercent = goodPixels / float(totalPixels)
+
+                # Convert to [0, 1]
+                averageBrightness = averageBrightness / 255.0;
+
+                #print "Good: " + str(goodPercent) + " Brightness:" + str(averageBrightness)
+
+                if goodPercent > 0.8 and averageBrightness > 0.15:
+                    #if circle seems good enough, return it
+                    out.append((int(minX + circle[0]), int(minY + circle[1]), int(circle[2])))
+        return out
+
+    def getBlueCircularSignPotentialCircles(self, image, contour):
+        out = []
+        x, y, w, h = cv2.boundingRect(contour)
+        offset = 30
+
+        minX = max(0, x - offset)
+        minY = max(0, y - offset)
+        maxX = min(x + w + offset, image.shape[1] - 1)
+        maxY = min(y + h + offset, image.shape[0] - 1)
+
+        #Cut a rectangular region around the contour, blur it and find a new blue mask
+        #This helps reduce the number of false positives
+        subimage = image[minY:maxY, minX:maxX]
+        subimage = cv2.blur(subimage, (3, 3))
+        subimage = self.getBlueMask(subimage, 0.63, 1.1, 0.05, 0.5).astype(np.uint8)
+
+        # param1 - it is the higher threshold of the two passed to the Canny() edge detector (the lower one is twice smaller).
+        # param2 - it is the accumulator threshold for the circle centers at the detection stage. The smaller it is, the more
+        # false circles may be detected. Circles, corresponding to the larger accumulator values, will be returned first.
+        circles = cv2.HoughCircles(subimage, cv2.HOUGH_GRADIENT, 0.5, 10, param1=20, param2=14, minRadius=5, maxRadius=30)
+
+        if circles is not None:
+            for circle in circles[0, :]:
+                center = (int(minX + circle[0]), int(minY + circle[1]))
+
+                goodPixels = 0
+                width = max(1, min(8, (int)(circle[2] * 0.8)))
+                totalPixels = ((width * 2 + 1) * (width * 2 + 1))
+
+                averageBrightness = 0
+
+                for y in range(center[1] - width, center[1] + width + 1):
+                    for x in range(center[0] - width, center[0] + width + 1):
+                        brightness = image[y][x][0] / 3.0 + image[y][x][1] / 3.0 + image[y][x][2] / 3.0
+                        averageBrightness += brightness / float(totalPixels)
+                        if (self.isGreyscale(image[y][x], 0.12)
                             or self.isBlueEnough(image[y][x], 0.75, 1.2)):
                             goodPixels += 1
 
