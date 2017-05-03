@@ -4,7 +4,7 @@ import cv2, math
 
 class TrafficSignExtractor:
     def processTestingImages(self):
-        #images = {14}
+        #images = {4}
         images = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 }
 
         minRectSize = 5
@@ -32,7 +32,6 @@ class TrafficSignExtractor:
         redSigns = self.getRedTrafficSigns(image, minSize, maxSize)
 
         # Extract red traffic signs
-        redSigns = self.getRedTrafficSigns(image, minSize, maxSize)
         blueSigns = self.getBlueTrafficSigns(image, minSize, maxSize)
 
         return redSigns + blueSigns
@@ -103,17 +102,17 @@ class TrafficSignExtractor:
 
         # TODO: Remove overlapping circles from foundCircles here
 
-        temp = []
-        for i in range(len(foundCircles)):
-            for j in range(i+1,len(foundCircles)):
-                intersection = self.circleIntersectionArea(foundCircles[i],foundCircles[j])
-                if intersection > 0.5:
-                    temp.append(foundCircles[j])
-                if intersection < -0.5:
-                    temp.append(foundCircles[i])
-
-        for i in temp:
-            foundCircles.remove(i)
+        for i in range(3):
+            temp = []
+            for i in range(len(foundCircles)):
+                for j in range(i+1,len(foundCircles)):
+                    intersection = self.circleIntersectionArea(foundCircles[i],foundCircles[j])
+                    if intersection > 0.3:
+                        temp.append(foundCircles[j])
+                    elif intersection < -0.3:
+                        temp.append(foundCircles[i])
+            for i in set(temp):
+                foundCircles.remove(i)
         out = []
 
         for circle in foundCircles:
@@ -146,10 +145,21 @@ class TrafficSignExtractor:
             foundCircles += self.getBlueCircularSignPotentialCircles(image, contour)
 
         #TODO: Remove overlapping circles from foundCircles here
+        for i in range(3):
+            temp = []
+            for i in range(len(foundCircles)):
+                for j in range(i+1,len(foundCircles)):
+                    intersection = self.circleIntersectionArea(foundCircles[i],foundCircles[j])
+                    if intersection > 0.3:
+                        temp.append(foundCircles[j])
+                    elif intersection < -0.3:
+                        temp.append(foundCircles[i])
 
+            for i in set(temp):
+                foundCircles.remove(i)
         out = []
 
-        for circle in foundCircles:
+        for circle in set(foundCircles):
             x = circle[0]
             y = circle[1]
             radius = circle[2]
@@ -372,32 +382,25 @@ class TrafficSignExtractor:
         rr1 = r1 * r1
         rr0 = r0 * r0
         d = ((circle1[0] - circle2[0]) ** 2 + (circle1[1] - circle2[1]) ** 2) ** 0.5
-        if d > r1 + r0:
-            # no overlap
-            return 0
+        #IF there is any overlap
+        if d < r0+r1:
+            #IF one is fully in another
+            if d <= abs(r1-r0):
+                if r1 > r0:
+                    return -1
+                else:
+                    return 1
 
-        if d <= abs(r0 - r1) and r0 >= r1:
-            # r1 is completely in r0
-            return 1
-
-        if d <= abs(r0 - r1) and r0 < r1:
-            # r0 is completely in r1
-            return -1
-
-        phi = (math.acos((rr0 + (d * d) - rr1) / (2 * r0 * d))) * 2
-        theta = (math.acos((rr1 + (d * d) - rr0) / (2 * r1 * d))) * 2
-        area1 = 0.5 * theta * rr1 - 0.5 * rr1 * math.sin(theta)
-        area2 = 0.5 * phi * rr0 - 0.5 * rr0 * math.sin(phi)
-
-        intersection_area = area1 + area2
-
-        if r0 >= r1:
-            # r1 is more than 50% in the other circle
-            return intersection_area / math.pi * rr1
-
-        if r0 < r1:
-            # r0 is more than 50% in the other circle
-            return -intersection_area / math.pi * rr0
+            #Area of overlap in %
+            x = (rr0-rr1 +d*d)/(2*d)
+            z = x*x
+            y = (rr0-z)**0.5
+            area = rr0* np.arcsin(y/r0) + rr1*np.arcsin(y/r1) - r1 *(x + (abs(z+rr1-rr0))**0.5)
+            if r1 > r0:
+                return -area/(math.pi*rr0)
+            else:
+                return area/(math.pi*rr1)
+        return 0
 
     def getRedCircularSignPotentialCircles(self, image, contour):
         out = []

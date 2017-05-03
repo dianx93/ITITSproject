@@ -45,7 +45,7 @@ def readTrainingImages(path, percentage):
     return images
 from sklearn import svm
 import time
-import SinglePixelVoting
+import TrafficSignExtractor
 if __name__ == "__main__":
 
     #How many images from each training set should be included, in range (0, 1].
@@ -78,13 +78,12 @@ if __name__ == "__main__":
     svm.fit(np.array(data),np.array(target))
 	
     test = cv2.imread(pathImages + "9.png")
-    svp = SinglePixelVoting.SinglePixelVoting()
-    signs = svp.getTrafficSigns(test,10)
+    svp = TrafficSignExtractor.TrafficSignExtractor()
+    signs = svp.getTrafficSigns(test,5,50)
     hog = HoG.HoG()
     for i in signs:
-		if i.shape[0] == 0 or i.shape[1] == 0:
-			continue
-		print svm.predict(hog.getHoG(i,(64,64)))
+        subimage = test[i[1]:i[1]+i[3], i[0]:i[0]+i[2]]
+        print svm.predict(hog.getHoG(subimage,(64,64)))
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
 	
