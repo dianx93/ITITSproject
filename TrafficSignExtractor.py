@@ -21,7 +21,8 @@ class TrafficSignExtractor:
             for rect in trafficSigns:
                 x, y, w, h = rect
                 offset = 5
-                cv2.rectangle(self.outputImage, (x - offset, y - offset), (x + w + offset * 2, y + h + offset * 2), redSignsColor, 1)
+                cv2.rectangle(self.outputImage, (x - offset, y - offset), (x + w + offset * 2, y + h + offset * 2),
+                              redSignsColor, 1)
 
             cv2.imwrite("output/" + str(imageId) + ".png", self.outputImage)
 
@@ -33,7 +34,7 @@ class TrafficSignExtractor:
         redSignsColor = [255, 255, 0]
         blueSignsColor = [0, 255, 255]
 
-        #Extract red traffic signs
+        # Extract red traffic signs
         redSigns = self.getRedTrafficSigns(image, minSize, maxSize, redSignsColor)
 
         return redSigns
@@ -51,12 +52,12 @@ class TrafficSignExtractor:
         im2, redContours, _ = cv2.findContours(redMask, 1, 2)
         redContours = self.removeBadContours(redContours, minSize, maxSize)
 
-        #===Find triangular red traffic signs===
+        # ===Find triangular red traffic signs===
         redTriangularSigns = self.getRedTriangularTrafficSigns(image, redContours)
         print "Triangular signs:"
         print redTriangularSigns
 
-        #===Find circular red traffic signs===
+        # ===Find circular red traffic signs===
         redCircularSigns = self.getRedCircularTrafficSigns(image, redContours)
         print "Circular signs:"
         print redCircularSigns
@@ -66,7 +67,7 @@ class TrafficSignExtractor:
     def getRedTriangularTrafficSigns(self, image, redContours):
         out = []
         for contour in redContours:
-            #Calculate the convex hull of the contour
+            # Calculate the convex hull of the contour
             hull = cv2.convexHull(contour)
             hullLen = cv2.arcLength(hull, True)
 
@@ -79,12 +80,23 @@ class TrafficSignExtractor:
 
         foundCircles = []
 
-        #1. Find all potential circles
+        # 1. Find all potential circles
         for contour in redContours:
             foundCircles += self.getRedCircularSignPotentialCircles(image, contour)
 
-        #TODO: Remove overlapping circles from foundCircles here
+        # TODO: Remove overlapping circles from foundCircles here
 
+        temp = []
+        for i in range(len(foundCircles)):
+            for j in range(i+1,len(foundCircles)):
+                intersection = self.circleIntersectionArea(foundCircles[i],foundCircles[j])
+                if intersection > 0.5:
+                    temp.append(foundCircles[j])
+                if intersection < -0.5:
+                    temp.append(foundCircles[i])
+
+        for i in temp:
+            foundCircles.remove(i)
         out = []
 
         for circle in foundCircles:
@@ -95,7 +107,6 @@ class TrafficSignExtractor:
             out.append([x - radius, y - radius, radius * 2, radius * 2])
 
         return out
-
 
     def getBlueTrafficSigns(self, image, minSize, maxSize):
         return
@@ -246,7 +257,7 @@ class TrafficSignExtractor:
         return True
 
     def isRedTriangularSign(self, image, contour, hull, hullLen):
-        #Approximate the hull until only 3 points remain
+        # Approximate the hull until only 3 points remain
         for i in np.arange(0.06, 0.2, 0.02):
             epsilon = i * hullLen
             approx = cv2.approxPolyDP(hull, epsilon, True)
@@ -355,7 +366,7 @@ class TrafficSignExtractor:
 
         if r0 < r1:
             # r0 is more than 50% in the other circle
-            return -intersection_area / math.pi * rr0 >= 0.5
+            return -intersection_area / math.pi * rr0
 
     def getRedCircularSignPotentialCircles(self, image, contour):
         out = []
@@ -367,8 +378,8 @@ class TrafficSignExtractor:
         maxX = min(x + w + offset, image.shape[1] - 1)
         maxY = min(y + h + offset, image.shape[0] - 1)
 
-        #Cut a rectangular region around the contour, blur it and find a new red mask
-        #This helps reduce the number of false positives
+        # Cut a rectangular region around the contour, blur it and find a new red mask
+        # This helps reduce the number of false positives
         subimage = image[minY:maxY, minX:maxX]
         subimage = cv2.blur(subimage, (3, 3))
         subimage = self.getRedMask(subimage, 0.63, 1.1).astype(np.uint8)
@@ -376,7 +387,8 @@ class TrafficSignExtractor:
         # param1 - it is the higher threshold of the two passed to the Canny() edge detector (the lower one is twice smaller).
         # param2 - it is the accumulator threshold for the circle centers at the detection stage. The smaller it is, the more
         # false circles may be detected. Circles, corresponding to the larger accumulator values, will be returned first.
-        circles = cv2.HoughCircles(subimage, cv2.HOUGH_GRADIENT, 0.5, 10, param1=20, param2=14, minRadius=5, maxRadius=30)
+        circles = cv2.HoughCircles(subimage, cv2.HOUGH_GRADIENT, 0.5, 10, param1=20, param2=14, minRadius=5,
+                                   maxRadius=30)
 
         if circles is not None:
             for circle in circles[0, :]:
@@ -402,10 +414,10 @@ class TrafficSignExtractor:
                 # Convert to [0, 1]
                 averageBrightness = averageBrightness / 255.0;
 
-                #print "Good: " + str(goodPercent) + " Brightness:" + str(averageBrightness)
+                # print "Good: " + str(goodPercent) + " Brightness:" + str(averageBrightness)
 
                 if goodPercent > 0.8 and averageBrightness > 0.15:
-                    #if circle seems good enough, return it
+                    # if circle seems good enough, return it
                     out.append((int(minX + circle[0]), int(minY + circle[1]), int(circle[2])))
         return out
 
