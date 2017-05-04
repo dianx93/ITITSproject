@@ -172,10 +172,13 @@ class TrafficSignExtractor:
     # Extracts the red part of the image with some tresholding.
     def getRedMask(self, image, ar, br):
         mask = np.zeros((image.shape[0], image.shape[1]))
-        for y in range(image.shape[0]):
-            for x in range(image.shape[1]):
-                if self.isRedEnough(image[y][x], ar, br):
-                    mask[y][x] = 255
+        mask[
+            (image[:, :, 2] / 255.0 > ar * (image[:, :, 1] / 255.0 + image[:, :, 0] / 255.0)) &
+            (
+                (image[:, :, 2] / 255.0 - np.maximum(image[:, :, 1], image[:, :, 0]) / 255.0) >
+                (br * (np.maximum(image[:, :, 1], image[:, :, 0]) - np.minimum(image[:, :, 1], image[:, :, 0])) / 255.0)
+            )
+        ] = 255
         return mask
 
     # Returns if a pixel is red enough based on the arguments. Pixel should be an BGR array.
@@ -217,21 +220,15 @@ class TrafficSignExtractor:
 
     def getBlueMask(self, image, ar, br, luminanceMin, luminanceMax):
         mask = np.zeros((image.shape[0], image.shape[1]))
-
-        for y in range(image.shape[0]):
-            for x in range(image.shape[1]):
-                blue = image[y][x][0]
-                green = image[y][x][1]
-                red = image[y][x][2]
-
-                if blue / 255.0 > ar * (green / 255.0 + red / 255.0):
-                    # Blue color dominates
-                    if blue / 255.0 - max(green, red) / 255.0 > br * (max(green, red) - min(green, red)) / 255.0:
-                        # It's not too cyan or whatever
-                        luminance = (0.3 * red + 0.59 * green + 0.11 * blue) / 255.0
-                        if luminance >= luminanceMin and luminance <= luminanceMax:
-                            mask[y][x] = 255
-
+        mask[
+            (image[:, :, 0] / 255.0 > ar * (image[:, :, 1] / 255.0 + image[:, :, 2] / 255.0)) &
+            (
+                (image[:, :, 0] / 255.0 - np.maximum(image[:, :, 1], image[:, :, 2]) / 255.0) >
+                (br * (np.maximum(image[:, :, 1], image[:, :, 2]) - np.minimum(image[:, :, 1], image[:, :, 2])) / 255.0)
+            ) &
+            ((0.3 * image[:, :, 2] + 0.59 * image[:, :, 1] + 0.11 * image[:, :, 0]) / 255.0 >= luminanceMin) &
+            ((0.3 * image[:, :, 2] + 0.59 * image[:, :, 1] + 0.11 * image[:, :, 0]) / 255.0 <= luminanceMax)
+        ] = 255
         return mask
 
     # Removes all the contours that are smaller than the given size.
@@ -563,7 +560,9 @@ def isContained(rect, others):
             return True
     return False
 
-
+import time
 if __name__ == "__main__":
+    start = time.time()
     tse = TrafficSignExtractor()
     tse.processTestingImages()
+    print "Execution time:", time.time() - start
