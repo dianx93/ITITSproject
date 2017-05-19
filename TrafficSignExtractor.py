@@ -23,6 +23,7 @@ class TrafficSignExtractor:
                 cv2.rectangle(self.outputImage, (x - offset, y - offset), (x + w + offset * 2, y + h + offset * 2), signColor, 1)
 
             cv2.imwrite("output/" + str(imageId) + ".png", self.outputImage)
+            #cv2.imwrite("testoutput/" + str(int(time.time()*10)) + ".png", self.outputImage)
 
         cv2.destroyAllWindows()
 
@@ -55,15 +56,15 @@ class TrafficSignExtractor:
         print redCircularSigns
 
         return redTriangularSigns + redCircularSigns
-
+    import time
     def getBlueTrafficSigns(self, image, minSize, maxSize):
         # kernel = np.ones((4, 4), np.uint8)
         # image = cv2.erode(image,kernel,iterations=1)
         # image = cv2.dilate(image,kernel,iterations=1)
 
         # ===Extract dominant blue colors from the image===
-        blueMask = self.getBlueMask(image, 0.5, 1, 0.075, 0.4).astype(np.uint8)
-
+        blueMask = self.getBlueMask(image, 0.6, 0.5, 0.075, 0.4).astype(np.uint8)
+        #cv2.imwrite("testout/" + str(int(time.time()*10))+".png", blueMask)
         # ===Find the contours for the extracted blue mask and remove the ones that are too small/big===
         im2, blueContours, _ = cv2.findContours(blueMask, 1, 2)
         blueContours = self.removeBadContours(blueContours, minSize, maxSize)

@@ -76,21 +76,22 @@ if __name__ == "__main__":
 		target.append(images[i]["SIGNTYPE"])
     svm = svm.SVC(gamma=0.001,C=100.)
     svm.fit(np.array(data),np.array(target))
-	
-    test = cv2.imread(pathImages + "8.png")
-    svp = TrafficSignExtractor.TrafficSignExtractor()
-    signs = svp.getTrafficSigns(test,5,50)
     hog = HoG.HoG()
-    predictions = []
-    for i in signs:
-        subimage = test[i[1]-10:i[1]+i[3]+10, i[0]-10:i[0]+i[2]+10]
-        prediction =  svm.predict(hog.getHoG(subimage,(64,64)))
-        predictions.append((i[0]-10, i[1]-10, prediction[0]))
+    for j in range(1,14):
+        if j == 12: continue
+        test = cv2.imread(pathImages + str(j)+".png")
+        svp = TrafficSignExtractor.TrafficSignExtractor()
+        signs = svp.getTrafficSigns(test,5,50)
+        predictions = []
+        for i in signs:
+            subimage = test[i[1]-10:i[1]+i[3]+10, i[0]-10:i[0]+i[2]+10]
+            prediction =  svm.predict(hog.getHoG(subimage,(64,64)))
+            predictions.append((i[0]-10, i[1]-10, prediction[0]))
 
-    for i in predictions:
-        cv2.putText(test,i[2],(i[0],i[1]),cv2.FONT_HERSHEY_PLAIN,1,(255,255,255))
+        for i in predictions:
+            cv2.putText(test,i[2],(i[0],i[1]),cv2.FONT_HERSHEY_PLAIN,1,(255,255,255))
 
-    cv2.imshow("Result", test)
+        cv2.imshow(str(j), test)
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
 	
