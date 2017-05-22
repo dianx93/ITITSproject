@@ -1,6 +1,6 @@
 import os, random, cv2
 import numpy as np
-from image_classifications import classifications
+from image_classifications import classifications,classifications2
 
 #Extracts the image metadata from the .csv files (Bounding box of the traffic sign)
 def addImageDetails(file, images):
@@ -19,12 +19,12 @@ def addImageDetails(file, images):
             images[name]["CID"] = int(CID)
 
 import HoG
-def readTrainingImages(path, percentage):
+def readTrainingImages(path, percentage,classifiers):
     images = {}
     hog = HoG.HoG()
     for folder in os.listdir(path):
         folder_index = int(folder)
-        sign_type = classifications[folder_index]
+        sign_type = classifiers[folder_index]
         files = os.listdir(path + folder)
         # print("Including %d images from %s" % (int(len(files) * percentage), folder))
         # Read the .ppm file containing the images
@@ -46,19 +46,24 @@ def readTrainingImages(path, percentage):
 from sklearn import svm
 import time
 import TrafficSignExtractor
+import pickle
 if __name__ == "__main__":
 
     #How many images from each training set should be included, in range (0, 1].
-    percentage = 0.01
+    percentage = 1.0
 
    # path = "train/Images/"
     path = "GTSRB/Final_Training/Images/"
     path2 = "BelgianTS/Training/"
     pathImages = "streets/"
 
-    images = readTrainingImages(path, percentage)
-    images.update(readTrainingImages(path2,percentage))
+  #  images = readTrainingImages(path, percentage, classifications)
+  #  images.update(readTrainingImages(path2,percentage,classifications2))
+  #  pickle.dump(images,open("Data.txt","wb"))
 
+    images = pickle.load(open("Data.txt","rb"))
+
+    #print images
     #A dataset is a dictionary-like object that holds all the data and some metadata about the data.
     # This data is stored in the .data member, which is a n_samples, n_features array.
     # In the case of supervised problem, one or more response variables are stored in the .target member.
@@ -73,9 +78,15 @@ if __name__ == "__main__":
     target = []
     width = 0
     height = 0
+
     for i in images:
 		data.append(images[i]["HoG"].tolist())
 		target.append(images[i]["SIGNTYPE"])
+
+    for i in reversed(range(len(data))):
+        if np.any(np.isnan(data[i])):
+            del data[i]
+            del target[i]
     svm = svm.SVC(gamma=0.001,C=100.)
     svm.fit(np.array(data),np.array(target))
     hog = HoG.HoG()
@@ -95,6 +106,7 @@ if __name__ == "__main__":
 
         cv2.imwrite("result/"+ str(j) + ".png", test)
         cv2.imshow(str(j), test)
+
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
 	
