@@ -53,9 +53,11 @@ if __name__ == "__main__":
 
    # path = "train/Images/"
     path = "GTSRB/Final_Training/Images/"
+    path2 = "BelgianTS/Training/"
     pathImages = "streets/"
 
     images = readTrainingImages(path, percentage)
+    images.update(readTrainingImages(path2,percentage))
 
     #A dataset is a dictionary-like object that holds all the data and some metadata about the data.
     # This data is stored in the .data member, which is a n_samples, n_features array.
