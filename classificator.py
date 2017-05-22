@@ -93,6 +93,7 @@ if __name__ == "__main__":
         for i in predictions:
             cv2.putText(test,i[2],(i[0],i[1]),cv2.FONT_HERSHEY_PLAIN,1,(255,255,255))
 
+        cv2.imwrite("result/"+ str(j) + ".png", test)
         cv2.imshow(str(j), test)
     #OLD: Open a random image for viewing
   #  image = random.choice(images.keys())
