@@ -364,9 +364,14 @@ class TrafficSignExtractor:
                     if (slopeAng > 90 - rotationError and slopeAng < 90 + rotationError):
                         # The line is roughly parallel to the x axis
                         parallelSides += 1
-
+				
+                blueEnoughPixels = 0
+                for i in range(0, l):
+                    p1 = tuple(approx[i][0])
+                    if self.isBlueEnough(image[p1[1]][p1[0]], 0.72, 1.1):
+                        blueEnoughPixels += 1
                 # if all angles were within limits, draw the triangle
-                if anglesOk and parallelSides == 2:
+                if anglesOk and parallelSides == 2 and blueEnoughPixels > 3:
                     for i in range(0, l):
                         p1 = tuple(approx[i][0])
                         p2 = approx[(i + 1) % l][0]
