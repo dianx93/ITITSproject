@@ -90,8 +90,8 @@ if __name__ == "__main__":
     svm = svm.SVC(gamma=0.001,C=100.)
     svm.fit(np.array(data),np.array(target))
     hog = HoG.HoG()
-    for j in range(1,16):
-       # if j == 12: continue
+    for j in range(1,31):
+        if j == 12 or j==18: continue
         test = cv2.imread(pathImages + str(j)+".png")
         svp = TrafficSignExtractor.TrafficSignExtractor()
         signs = svp.getTrafficSigns(test,5,50)
